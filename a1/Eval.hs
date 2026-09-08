@@ -144,6 +144,6 @@ eval env (Apply e1 e2) =
           --Step 6: Use new environment to evaluate the body
           --Step 7: The result of eval on the body is the result of the application
           in eval env' body
-
+    Right _ -> Left "Invalid application"
 
 -- TODO: Add cases after extending Exp. 
