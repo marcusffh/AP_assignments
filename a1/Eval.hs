@@ -82,36 +82,67 @@ eval env (Let var e1 e2) =
 
 
 eval env (ForLoop (p, initial) (i, bound) body) =
+  -- Step 1: evaluate initial to a value v
   case eval env initial of
     Left err -> Left err
     Right v -> 
+      
+      -- Step 2: evaluate bound to an integer n
       case eval env bound of
         Left err -> Left err
         Right (ValInt n) ->
+
+          -- Defining the loop 
           let loop counter pVal = 
+                -- Step 5: While i < n
                 if counter < n 
                 then 
+                  
+                  --Step 3: Bind i to the current counter
+                  --Step 4: Bind p to the current value
                   let env'' = envExtend p pVal (envExtend i (ValInt counter) env)
                   in case eval env'' body of
                     Left err -> Left err
+
+                    -- Bind p to the result of body and increment i and repeat
                     Right newP -> loop (counter + 1) newP
+                
                 else 
+                  --Step 6: Return the final value of p
                   Right pVal
+          
+          --Starting i at 0 and p at v
           in loop 0 v
+        -- Step 2:The bound is not an integer  
         Right _ -> Left "Non-integral loop bound"
 
 
-eval env (Lambda param body) =
+eval env (Lambda param body) = 
+--Compromises a parameter name and a body expression(param and body)
+--When evaluated it produces a function value represented by ValFun
+--Store the parameter amd bpdy and capture the environment where it was constructed
     Right (ValFun env param body) 
 
 eval env (Apply e1 e2) =
+  --Step 1: Apply a function expression to an argument expression (e1, e2)
   case eval env e1 of
+    --Step 2: The function expression must evaluate to a ValFun
+    -- If eval of e1 producesd an error return that error
     Left err -> Left err
+    -- When e1 evaluates to ValFun extract the captured environment, parameter and body
     Right (ValFun funEnv param body) ->
+      --Step 3: Argument expression can eval to an argument value of any type
       case eval env e2 of
+        --If eval e2 produces an error, return the error
         Left err -> Left err
+        -- e2 has eval to an argument value
         Right argVal ->
+          
+          --Step 4: Start with environment stored in the ValFun
+          --Step 5: Extend it with a binding of parameter name to the argument value
           let env' = envExtend param argVal funEnv 
+          --Step 6: Use new environment to evaluate the body
+          --Step 7: The result of eval on the body is the result of the application
           in eval env' body
 
 
