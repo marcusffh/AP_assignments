@@ -90,7 +90,19 @@ tests =
               (Add (CstInt 2) (CstInt 3))
               (Let "x" (CstBool True) (Var "x"))
           )
-          @?= Right (ValBool True)
+          @?= Right (ValBool True),
           --
+
+          testCase "ForLoop " $
+        eval envEmpty (ForLoop ("p", CstInt 0) ("i", CstInt 10) (Add (Var "p") (Var ("i"))))
+          @?= Right (ValInt 45),
+        
+      testCase "ForLoop body error " $
+        eval envEmpty (ForLoop ("p", CstInt 5) ("i", CstInt 3) (Div (Var "p") (CstInt (0))))
+          @?= Left "Division by zero",
+
+      testCase "ForLoop Non-integral loop bound " $
+        eval envEmpty (ForLoop ("p", CstInt 5) ("i", CstBool True) (Add (Var "p") (Var ("i"))))
+          @?= Left "Non-integral loop bound"
     ]
 -- TODO - add more
