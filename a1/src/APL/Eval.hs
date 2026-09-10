@@ -118,9 +118,6 @@ eval env (ForLoop (p, initial) (i, bound) body) =
 
 
 eval env (Lambda param body) = 
---Compromises a parameter name and a body expression(param and body)
---When evaluated it produces a function value represented by ValFun
---Store the parameter amd bpdy and capture the environment where it was constructed
     Right (ValFun env param body) 
 
 eval env (Apply e1 e2) =
