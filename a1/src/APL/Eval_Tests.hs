@@ -90,7 +90,7 @@ tests =
               (Add (CstInt 2) (CstInt 3))
               (Let "x" (CstBool True) (Var "x"))
           )
-          @?= Right (ValBool True),
+          @?= Right (ValBool True)
           --
     ]
 -- TODO - add more
