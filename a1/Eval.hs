@@ -8,6 +8,7 @@ where
 
 import APL.AST (Exp (..), VName)
 
+
 data Val
   = ValInt Integer
   | ValBool Bool
@@ -81,6 +82,8 @@ eval env (Let var e1 e2) =
     Right v -> eval (envExtend var v env) e2
 
 
+
+-- For-loop implementation
 eval env (ForLoop (p, initial) (i, bound) body) =
   -- Step 1: evaluate initial to a value v
   case eval env initial of
@@ -117,12 +120,15 @@ eval env (ForLoop (p, initial) (i, bound) body) =
         Right _ -> Left "Non-integral loop bound"
 
 
+-- Lambda implementation
 eval env (Lambda param body) = 
 --Compromises a parameter name and a body expression(param and body)
 --When evaluated it produces a function value represented by ValFun
 --Store the parameter amd bpdy and capture the environment where it was constructed
     Right (ValFun env param body) 
 
+
+-- Apply implementation
 eval env (Apply e1 e2) =
   --Step 1: Apply a function expression to an argument expression (e1, e2)
   case eval env e1 of
