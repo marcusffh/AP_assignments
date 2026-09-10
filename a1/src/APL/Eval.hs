@@ -120,6 +120,19 @@ eval env (ForLoop (p, initial) (i, bound) body) =
 eval env (Lambda param body) = 
     Right (ValFun env param body) 
 
+eval env (Apply e1 e2) =
+  case eval env e1 of
+    Left err -> Left err
+    Right (ValFun param body) ->
+      case eval env e2 of
+        Left err -> Left err
+        Right argVal ->
+
+
+-- eval env (TryCatch e1 e2) =
+--  case eval env e1 of
+--  Left err -> eval env e2
+--  Right Val -> Right Val
 
 
 
