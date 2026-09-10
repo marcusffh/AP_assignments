@@ -146,4 +146,8 @@ eval env (Apply e1 e2) =
           in eval env' body
     Right _ -> Left "Invalid application"
 
--- TODO: Add cases after extending Exp. 
+eval env (TryCatch e1 e2)
+  case eval env e1 of
+    Left _ -> eval env e2
+    Right v -> Right v
+
