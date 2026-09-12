@@ -124,15 +124,29 @@ eval env (ForLoop (p, initial) (i, bound) body) =
 eval env (Lambda param body) = 
     Right (ValFun env param body) 
 
+-- env means environment which we define as a list of variable names and their values
+-- you should think of env as a dictionary of names and the values each name has
+
+-- param means parameter and is the name, a function gives to its input
+
+-- body is what the function is supposed to do
+
+-- eval takes an environment and an expression, and returns either a value or an error
+-- In this assignment evaluate mean to take an expression and figure out what value it represents
+
+
 
 -- Apply implementation
-eval env (Apply e1 e2) =
+eval env (Apply e1 e2) = --e1 is a function expression, e2 is an argument expression
   case eval env e1 of
     Left err -> Left err
-    Right (ValFun param body) ->
+    Right (ValFun funEnv param body) ->
       case eval env e2 of
         Left err -> Left err
         Right argVal ->
+          eval (envExtend param argVal funEnv) body
+
+-- envExtend takes a variable name, a value, and an environment, and adds the variable name and value to the environment
 
 
 -- eval env (TryCatch e1 e2) =
