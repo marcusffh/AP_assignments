@@ -145,6 +145,18 @@ tests =
             (Let "x" (CstInt 2)
               (Lambda "y" (Add (Var "x") (Var "y"))))
             (CstInt 3))
-          @?= Right (ValInt 5)
+          @?= Right (ValInt 5),
+
+      testCase "TryCatch successful" $
+        eval envEmpty
+          (TryCatch (CstInt 5) (CstInt 10))
+          @?= Right (ValInt 5),
+
+      testCase "TryCatch catches error" $
+        eval envEmpty
+          (TryCatch
+            (Div (CstInt 1) (CstInt 0))
+            (CstInt 10))
+          @?= Right (ValInt 10)
     ]
 -- TODO - add more
