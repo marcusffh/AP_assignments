@@ -105,7 +105,7 @@ tests =
         eval envEmpty (ForLoop ("p", CstInt 5) ("i", CstBool True) (Add (Var "p") (Var ("i"))))
           @?= Left "Non-integral loop bound",
 
-      testCase "Apply order " $
+      testCase "Apply order " $ --e1 is evaluated as invalid application. e2 would be division by 0 but never triggers since e1 fails first 
         eval envEmpty
           (Apply
             (CstInt 5) 
