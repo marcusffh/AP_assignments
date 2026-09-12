@@ -104,39 +104,59 @@ tests =
       testCase "ForLoop Non-integral loop bound " $
         eval envEmpty (ForLoop ("p", CstInt 5) ("i", CstBool True) (Add (Var "p") (Var ("i"))))
           @?= Left "Non-integral loop bound",
-----------------------------------------------------PART 2 -------------------------------
-      testCase "Apply Succesfull" $
-        eval envEmpty 
-        (Apply (Let "x" (CstInt 1) (Lambda "y" (Add ( Var "x") (Var "y")))) (CstInt 2))
-          @?= Right (ValInt 3),
-          
-      testCase "Apply non-function" $
-        eval envEmpty 
-        (Apply (CstInt 1) (CstInt 1))
-          @?= Left "First argument must be function",
 
-      testCase "Apply e1 fails" $
-        eval envEmpty 
-        (Apply (Div (CstInt 1) (CstInt 0) (CstInt 1)))
-          @?= Left "e1 function is broken",
+      testCase "Lambda (ValFun conversion)" $ -- checks the lambda behaves correctly
+        eval envEmpty
+          (Lambda "x" (Add (Var "x") (CstInt 1)))
+          @?= Right (ValFun [] "x" (Add (Var "x") (CstInt 1))),
 
-      testCase "Apply e2 fails" $
-        eval envEmpty 
-        (function)
-          @?= Left "Text",
+      testCase "Lambda environment" $
+        eval envEmpty
+          (Let "x" (CstInt 5)
+            (Lambda "y" (Add (Var "x") (Var "y"))))
+          @?= Right (ValFun [("x", ValInt 5)] "y"
+            (Add (Var "x") (Var "y"))),
 
-                                       
+      testCase "Apply (Function test)" $
+        eval envEmpty
+          (Apply
+            (Lambda "x" (Add (Var "x") (CstInt 1)))
+            (CstInt 3))
+          @?=Right (ValInt 4),
+      
+      testCase "Apply order " $
+        eval envEmpty
+          (Apply
+            (CstInt 5) 
+            (Div (CstInt 1) (CstInt 0)))
+          @?= Left "Invalid application",
+
+
+      testCase "Apply diff. argument type" $
+        eval envEmpty
+          (Apply
+            (Lambda "x" (Var "x"))
+            (CstBool True))
+          @?= Right (ValBool True),
+
+      testCase "Apply captured environment" $
+        eval envEmpty
+          (Apply
+            (Let "x" (CstInt 2)
+              (Lambda "y" (Add (Var "x") (Var "y"))))
+            (CstInt 3))
+          @?= Right (ValInt 5),
+
+      testCase "TryCatch successful" $
+        eval envEmpty
+          (TryCatch (CstInt 5) (CstInt 10))
+          @?= Right (ValInt 5),
+
+      testCase "TryCatch catches error" $
+        eval envEmpty
+          (TryCatch
+            (Div (CstInt 1) (CstInt 0))
+            (CstInt 10))
+          @?= Right (ValInt 10)
     ]
 -- TODO - add more
-
-
-
-
-
-
---- template test
-
-      testCase "Text" $
-        eval envEmpty 
-        (function)
-          @?= Left "Text",
