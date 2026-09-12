@@ -103,6 +103,13 @@ tests =
 
       testCase "ForLoop Non-integral loop bound " $
         eval envEmpty (ForLoop ("p", CstInt 5) ("i", CstBool True) (Add (Var "p") (Var ("i"))))
-          @?= Left "Non-integral loop bound"
+          @?= Left "Non-integral loop bound",
+
+      testCase "Apply order " $
+        eval envEmpty
+          (Apply
+            (CstInt 5) 
+            (Div (CstInt 1) (CstInt 0)))
+          @?= Left "Invalid application"
     ]
 -- TODO - add more
