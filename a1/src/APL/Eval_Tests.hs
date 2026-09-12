@@ -105,26 +105,26 @@ tests =
         eval envEmpty (ForLoop ("p", CstInt 5) ("i", CstBool True) (Add (Var "p") (Var ("i"))))
           @?= Left "Non-integral loop bound",
 
-      testCase "Lambda (ValFun conversion)" $ -- checks the lambda behaves correctly
+      testCase "Lambda (ValFun conversion)" $ -- checks lambda expression is correctly turned into a ValFun
         eval envEmpty
           (Lambda "x" (Add (Var "x") (CstInt 1)))
           @?= Right (ValFun [] "x" (Add (Var "x") (CstInt 1))),
 
-      testCase "Lambda environment" $
+      testCase "Lambda environment" $ --test that Lambda remembers environment where it was created
         eval envEmpty
           (Let "x" (CstInt 5)
             (Lambda "y" (Add (Var "x") (Var "y"))))
           @?= Right (ValFun [("x", ValInt 5)] "y"
             (Add (Var "x") (Var "y"))),
 
-      testCase "Apply (Function test)" $
+      testCase "Apply (Function test)" $ --Test that a function can be applied to an argument and gives correct result
         eval envEmpty
           (Apply
             (Lambda "x" (Add (Var "x") (CstInt 1)))
             (CstInt 3))
           @?=Right (ValInt 4),
       
-      testCase "Apply order " $
+      testCase "Apply order " $ -- Tests that e1 is evaluated before e2 in Apply
         eval envEmpty
           (Apply
             (CstInt 5) 
@@ -132,14 +132,14 @@ tests =
           @?= Left "Invalid application",
 
 
-      testCase "Apply diff. argument type" $
+      testCase "Apply diff. argument type" $ --Tests that Apply can use an argument of a different type (bool)
         eval envEmpty
           (Apply
             (Lambda "x" (Var "x"))
             (CstBool True))
           @?= Right (ValBool True),
 
-      testCase "Apply captured environment" $
+      testCase "Apply captured environment" $ --Tests that applu uses the environment captured by the Lambda
         eval envEmpty
           (Apply
             (Let "x" (CstInt 2)
@@ -147,12 +147,12 @@ tests =
             (CstInt 3))
           @?= Right (ValInt 5),
 
-      testCase "TryCatch successful" $
+      testCase "TryCatch successful" $ -- Tests that TryCatch returns e1 when it succeeds
         eval envEmpty
           (TryCatch (CstInt 5) (CstInt 10))
           @?= Right (ValInt 5),
 
-      testCase "TryCatch catches error" $
+      testCase "TryCatch catches error" $ -- tests that TryCatch evaluates e2 when e1 fails
         eval envEmpty
           (TryCatch
             (Div (CstInt 1) (CstInt 0))
