@@ -104,12 +104,39 @@ tests =
       testCase "ForLoop Non-integral loop bound " $
         eval envEmpty (ForLoop ("p", CstInt 5) ("i", CstBool True) (Add (Var "p") (Var ("i"))))
           @?= Left "Non-integral loop bound",
+----------------------------------------------------PART 2 -------------------------------
+      testCase "Apply Succesfull" $
+        eval envEmpty 
+        (Apply (Let "x" (CstInt 1) (Lambda "y" (Add ( Var "x") (Var "y")))) (CstInt 2))
+          @?= Right (ValInt 3),
+          
+      testCase "Apply non-function" $
+        eval envEmpty 
+        (Apply (CstInt 1) (CstInt 1))
+          @?= Left "First argument must be function",
 
-      testCase "Apply order " $ --e1 is evaluated as invalid application. e2 would be division by 0 but never triggers since e1 fails first 
-        eval envEmpty
-          (Apply
-            (CstInt 5) 
-            (Div (CstInt 1) (CstInt 0)))
-          @?= Left "Invalid application"
+      testCase "Apply e1 fails" $
+        eval envEmpty 
+        (Apply (Div (CstInt 1) (CstInt 0) (CstInt 1)))
+          @?= Left "e1 function is broken",
+
+      testCase "Apply e2 fails" $
+        eval envEmpty 
+        (function)
+          @?= Left "Text",
+
+                                       
     ]
 -- TODO - add more
+
+
+
+
+
+
+--- template test
+
+      testCase "Text" $
+        eval envEmpty 
+        (function)
+          @?= Left "Text",
