@@ -8,4 +8,5 @@ tests :: TestTree
 tests =
   testGroup
     "Prettyprinting"
-    []
+    [ ]
+--Test for PrettyPrint defined in Ast.hs

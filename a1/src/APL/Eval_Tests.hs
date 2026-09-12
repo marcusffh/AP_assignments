@@ -92,5 +92,24 @@ tests =
           )
           @?= Right (ValBool True),
           --
+
+          testCase "ForLoop " $
+        eval envEmpty (ForLoop ("p", CstInt 0) ("i", CstInt 10) (Add (Var "p") (Var ("i"))))
+          @?= Right (ValInt 45),
+        
+      testCase "ForLoop body error " $
+        eval envEmpty (ForLoop ("p", CstInt 5) ("i", CstInt 3) (Div (Var "p") (CstInt (0))))
+          @?= Left "Division by zero",
+
+      testCase "ForLoop Non-integral loop bound " $
+        eval envEmpty (ForLoop ("p", CstInt 5) ("i", CstBool True) (Add (Var "p") (Var ("i"))))
+          @?= Left "Non-integral loop bound",
+
+      testCase "Apply order " $ --e1 is evaluated as invalid application. e2 would be division by 0 but never triggers since e1 fails first 
+        eval envEmpty
+          (Apply
+            (CstInt 5) 
+            (Div (CstInt 1) (CstInt 0)))
+          @?= Left "Invalid application"
     ]
 -- TODO - add more

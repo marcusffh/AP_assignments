@@ -122,34 +122,24 @@ eval env (ForLoop (p, initial) (i, bound) body) =
 
 -- Lambda implementation
 eval env (Lambda param body) = 
---Compromises a parameter name and a body expression(param and body)
---When evaluated it produces a function value represented by ValFun
---Store the parameter amd bpdy and capture the environment where it was constructed
     Right (ValFun env param body) 
 
 
 -- Apply implementation
 eval env (Apply e1 e2) =
-  --Step 1: Apply a function expression to an argument expression (e1, e2)
   case eval env e1 of
-    --Step 2: The function expression must evaluate to a ValFun
-    -- If eval of e1 producesd an error return that error
     Left err -> Left err
-    -- When e1 evaluates to ValFun extract the captured environment, parameter and body
-    Right (ValFun funEnv param body) ->
-      --Step 3: Argument expression can eval to an argument value of any type
+    Right (ValFun param body) ->
       case eval env e2 of
-        --If eval e2 produces an error, return the error
         Left err -> Left err
-        -- e2 has eval to an argument value
         Right argVal ->
-          
-          --Step 4: Start with environment stored in the ValFun
-          --Step 5: Extend it with a binding of parameter name to the argument value
-          let env' = envExtend param argVal funEnv 
-          --Step 6: Use new environment to evaluate the body
-          --Step 7: The result of eval on the body is the result of the application
-          in eval env' body
-    Right _ -> Left "Invalid application"
 
--- TODO: Add cases after extending Exp. 
+
+-- eval env (TryCatch e1 e2) =
+--  case eval env e1 of
+--  Left err -> eval env e2
+--  Right Val -> Right Val
+
+
+
+
