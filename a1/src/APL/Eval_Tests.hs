@@ -105,11 +105,46 @@ tests =
         eval envEmpty (ForLoop ("p", CstInt 5) ("i", CstBool True) (Add (Var "p") (Var ("i"))))
           @?= Left "Non-integral loop bound",
 
-      testCase "Apply order " $ --e1 is evaluated as invalid application. e2 would be division by 0 but never triggers since e1 fails first 
+      testCase "Lambda (ValFun conversion)" $ -- checks the lambda behaves correctly
+        eval envEmpty
+          (Lambda "x" (Add (Var "x") (CstInt 1)))
+          @?= Right (ValFun [] "x" (Add (Var "x") (CstInt 1))),
+
+      testCase "Lambda environment" $
+        eval envEmpty
+          (Let "x" (CstInt 5)
+            (Lambda "y" (Add (Var "x") (Var "y"))))
+          @?= Right (ValFun [("x", ValInt 5)] "y"
+            (Add (Var "x") (Var "y"))),
+
+      testCase "Apply (Function test)" $
+        eval envEmpty
+          (Apply
+            (Lambda "x" (Add (Var "x") (CstInt 1)))
+            (CstInt 3))
+          @?=Right (ValInt 4),
+      
+      testCase "Apply order " $
         eval envEmpty
           (Apply
             (CstInt 5) 
             (Div (CstInt 1) (CstInt 0)))
-          @?= Left "Invalid application"
+          @?= Left "Invalid application",
+
+
+      testCase "Apply diff. argument type" $
+        eval envEmpty
+          (Apply
+            (Lambda "x" (Var "x"))
+            (CstBool True))
+          @?= Right (ValBool True),
+
+      testCase "Apply captured environment" $
+        eval envEmpty
+          (Apply
+            (Let "x" (CstInt 2)
+              (Lambda "y" (Add (Var "x") (Var "y"))))
+            (CstInt 3))
+          @?= Right (ValInt 5)
     ]
 -- TODO - add more
