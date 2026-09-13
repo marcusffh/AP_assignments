@@ -151,8 +151,8 @@ eval env (Apply e1 e2) = --e1 is a function expression, e2 is an argument expres
 
 eval env (TryCatch e1 e2) =
   case eval env e1 of
-    Left err -> eval env e2
-    Right Val -> Right Val
+    Left _ -> eval env e2
+    Right v -> Right v
 
 
 
