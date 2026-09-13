@@ -147,13 +147,12 @@ eval env (Apply e1 e2) = --e1 is a function expression, e2 is an argument expres
           eval (envExtend param argVal funEnv) body
     Right _ -> Left "valFun isnt a function" -- the case where valFun does not return a function
 
--- envExtend takes a variable name, a value, and an environment, and adds the variable name and value to the environment
 
 
--- eval env (TryCatch e1 e2) =
---  case eval env e1 of
---  Left err -> eval env e2
---  Right Val -> Right Val
+eval env (TryCatch e1 e2) =
+  case eval env e1 of
+    Left err -> eval env e2
+    Right Val -> Right Val
 
 
 
