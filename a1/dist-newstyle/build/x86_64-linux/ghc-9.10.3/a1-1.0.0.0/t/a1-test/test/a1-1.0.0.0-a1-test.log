@@ -1,3 +1,3 @@
 Test suite a1-test: RUNNING...
-Test suite a1-test: FAIL
+Test suite a1-test: PASS
 Test suite logged to: /mnt/c/Users/Marcus/Desktop/AP_assignments/a1/./dist-newstyle/build/x86_64-linux/ghc-9.10.3/a1-1.0.0.0/t/a1-test/test/a1-1.0.0.0-a1-test.log

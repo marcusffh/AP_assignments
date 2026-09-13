@@ -145,7 +145,7 @@ eval env (Apply e1 e2) = --e1 is a function expression, e2 is an argument expres
         Left err -> Left err
         Right argVal ->
           eval (envExtend param argVal funEnv) body
-    Right _ -> Left "valFun isnt a function" -- the case where valFun does not return a function
+    Right _ -> Left "Invalid application" -- the case where valFun does not return a function
 
 
 
