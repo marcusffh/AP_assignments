@@ -61,7 +61,7 @@ catch (EvalM m1) (EvalM m2) = EvalM $ \env ->
     Right x -> Right x
 
 runEval :: EvalM a -> ([String], Either Error a)
-runEval (EvalM m) = m envEmpty
+runEval (EvalM m) = ([], m envEmpty)
 
 evalIntBinOp :: (Integer -> Integer -> EvalM Integer) -> Exp -> Exp -> EvalM Val
 evalIntBinOp f e1 e2 = do
