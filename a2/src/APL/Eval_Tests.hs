@@ -5,7 +5,7 @@ import APL.Eval (Error, Val (..), eval, runEval)
 import Test.Tasty (TestTree, testGroup)
 import Test.Tasty.HUnit (testCase, (@?=))
 
-eval' :: Exp -> Either Error Val
+eval' :: Exp -> ([String], Either Error Val)
 eval' = runEval . eval
 
 evalTests :: TestTree
