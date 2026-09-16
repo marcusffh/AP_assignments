@@ -197,3 +197,18 @@ eval (Apply e1 e2) = do
       failure "Cannot apply non-function"
 eval (TryCatch e1 e2) =
   eval e1 `catch` eval e2
+
+
+eval (Print s e) = do
+  v <- eval e
+  evalPrint (s ++ ": " ++ printVal v)
+  pure v
+
+evalPrint :: String -> EvalM ()
+evalPrint s = EvalM $ \_env state ->
+  Right ((), state ++ [s])
+
+printVal :: Val -> String
+printVal (ValInt i) = show i
+printVal (ValBool b) = show b
+printVal (ValFun _ _ _) = "#<fun>"
