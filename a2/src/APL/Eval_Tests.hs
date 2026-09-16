@@ -89,7 +89,15 @@ printTests :: TestTree
 printTests =
   testGroup
     "Task 1: Printing"
-    []
+    [
+    testCase "RunEval " $ 
+      eval' (Print "foo" $ CstInt 2)
+      @?= (["foo: 2"], Right (ValInt 2)),
+
+      testCase "RunEval error " $
+      eval' (Let "x" (Print "foo" $ CstInt 2) (Var "bar"))
+      @?= (["foo: 2"], Left "Unknown variable: bar")
+    ]
 
 kvTests :: TestTree
 kvTests =
