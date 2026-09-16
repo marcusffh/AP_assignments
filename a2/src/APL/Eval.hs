@@ -9,109 +9,63 @@ where
 import APL.AST (Exp (..), VName)
 import Control.Monad (ap, liftM)
 
----------------------1.  VALUES AND ENVIRONMENTS ------------------
-
--- val is the result of evaluating an APL expression
 data Val
   = ValInt Integer
   | ValBool Bool
   | ValFun Env VName Exp
   deriving (Eq, Show)
 
-
--- Env keeps track of which variables are in scope
 type Env = [(VName, Val)]
 
--- The empty environment
 envEmpty :: Env
 envEmpty = []
 
--- add a variable to an environment
 envExtend :: VName -> Val -> Env -> Env
 envExtend v val env = (v, val) : env
 
--- look up a variable in the environment
 envLookup :: VName -> Env -> Maybe Val
 envLookup v env = lookup v env
 
-
---------------------2. ERRORS AND THE EvalM MONAD ---------------------
-
--- error produced during evaluation are strings
 type Error = String
 
---Part 1
--- State stores the strings printed during evaluation
 type State = [String]
 
+newtype EvalM a = EvalM (Env -> State -> (State, Either Error a))
 
---- EvalM is the monad used by the evaluator
--- it takes an environment, and either fails with an error,
--- or produces a value of type a
-newtype EvalM a = EvalM (Env -> State -> Either Error (State, a))
-
-
---- Functor instance
--- Takes a pure value, and puts in within some effect/context
 instance Functor EvalM where
   fmap = liftM
 
-
--- Applicative instance
--- Then function is within some context, AND the value is within some context
 instance Applicative EvalM where
-  pure x = EvalM $ \_env state -> Right (state, x)
+  pure x = EvalM $ \_env state -> (state, Right x)
   (<*>) = ap
 
-
--- Monad instance
 instance Monad EvalM where
-  EvalM x >>= f = EvalM $ \env state->
-    case x env state of
-      Left err -> Left err
-      Right (state', x') ->
+  EvalM x >>= f = EvalM $ \env state ->
+    let (state', result) = x env state
+    in case result of
+      Left err -> (state', Left err)
+      Right x' ->
         let EvalM y = f x'
          in y env state'
 
---------------------------- 3. BASIC OPERATIONS ON THE EvalM monad --------------
+askEnv :: EvalM Env 
+askEnv = EvalM $ \env state -> (state, Right env)
 
--- Get the current environment
-askEnv :: EvalM Env
-askEnv = EvalM $ \env state -> Right (state, env)
-
--- Temporarily alter the environment while doing a computation
 localEnv :: (Env -> Env) -> EvalM a -> EvalM a
-localEnv f (EvalM m) = EvalM $ \env state ->
-  m (f env) state
+localEnv f (EvalM m) = EvalM $ \env -> m (f env)
 
--- Fail the current computation with an error message.
 failure :: String -> EvalM a
-failure s = EvalM $ \_env _state-> Left s
+failure s = EvalM $ \_env state -> (state, Left s)
 
-
--- Try the first computation
--- If the first computation fails, evaluate the second computation instead
 catch :: EvalM a -> EvalM a -> EvalM a
-catch (EvalM m1) (EvalM m2) = EvalM $ \env state->
+catch (EvalM m1) (EvalM m2) = EvalM $ \env state ->
   case m1 env state of
-    Left _ -> m2 env state
-    Right (state', x) -> Right (state', x)
+    (state', Left _) -> m2 env state'
+    (state', Right x) -> (state', Right x)
 
------------------------------ 4. RUNNING AN EVALUATION ----------------
-
---  TASK 1
--- runEval :: EvalM a -> Either Error a
--- runEval (EvalM m) = m envEmpty
 runEval :: EvalM a -> ([String], Either Error a)
-runEval (EvalM m) =
-  case m envEmpty [] of
-    Left err -> ([], Left err)
-    Right (state, value) -> (state, Right value)
-    
-
-
-
--------------------------5. HELPER FUNCTIONS FOR EVALUATING EXPRESSIONS------------
+runEval (EvalM m) = 
+  m envEmpty []
 
 evalIntBinOp :: (Integer -> Integer -> EvalM Integer) -> Exp -> Exp -> EvalM Val
 evalIntBinOp f e1 e2 = do
@@ -126,10 +80,6 @@ evalIntBinOp' f e1 e2 =
   evalIntBinOp f' e1 e2
   where
     f' x y = pure $ f x y
-
-
---------------------- 6. THE EVALUATOR----
--- we did all of part 6 in last weeks assignment
 
 eval :: Exp -> EvalM Val
 eval (CstInt x) = pure $ ValInt x
@@ -198,7 +148,6 @@ eval (Apply e1 e2) = do
 eval (TryCatch e1 e2) =
   eval e1 `catch` eval e2
 
-
 eval (Print s e) = do
   v <- eval e
   evalPrint (s ++ ": " ++ printVal v)
@@ -206,7 +155,7 @@ eval (Print s e) = do
 
 evalPrint :: String -> EvalM ()
 evalPrint s = EvalM $ \_env state ->
-  Right ((), state ++ [s])
+  (state ++ [s], Right ())
 
 printVal :: Val -> String
 printVal (ValInt i) = show i
