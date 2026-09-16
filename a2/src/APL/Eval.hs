@@ -98,8 +98,8 @@ catch (EvalM m1) (EvalM m2) = EvalM $ \env ->
 -- Part 2.1
 -- runEval :: EvalM a -> Either Error a
 -- runEval (EvalM m) = m envEmpty
-runEval :: EvalM a-> ([String], Either Error a)
-runEval (EvalM m) = 
+runEval :: EvalM a -> ([String], Either Error a)
+runEval (EvalM m) = ([], m envEmpty)
 
 
 
