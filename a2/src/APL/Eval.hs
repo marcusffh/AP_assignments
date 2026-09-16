@@ -40,12 +40,12 @@ envLookup v env = lookup v env
 -- error produced during evaluation are strings
 type Error = String
 
-
+type State = [String]
 
 --- EvalM is the monad used by the evaluator
 -- it takes an environment, and either fails with an error,
 -- or produces a value of type a
-newtype EvalM a = EvalM (Env -> Either Error a)
+newtype EvalM a = EvalM (Env -> State -> Either Error (a, State))
 
 
 --- Functor instance
@@ -57,24 +57,24 @@ instance Functor EvalM where
 -- Applicative instance
 -- Then function is within some context, AND the value is within some context
 instance Applicative EvalM where
-  pure x = EvalM $ \_env -> Right x
+  pure x = EvalM $ \_env state -> Right (x, state)
   (<*>) = ap
 
 
 -- Monad instance
 instance Monad EvalM where
-  EvalM x >>= f = EvalM $ \env ->
-    case x env of
+  EvalM x >>= f = EvalM $ \env state ->
+    case x env state of
       Left err -> Left err
-      Right x' ->
+      Right (x', state') ->
         let EvalM y = f x'
-         in y env
+         in y env state
 
 --------------------------- 3. BASIC OPERATIONS ON THE EvalM monad --------------
 
 -- Get the current environment
 askEnv :: EvalM Env
-askEnv = EvalM $ \env -> Right env
+askEnv = EvalM $ \env state -> Right (env, state)
 
 -- Temporarily alter the environment while doing a computation
 localEnv :: (Env -> Env) -> EvalM a -> EvalM a
@@ -82,15 +82,15 @@ localEnv f (EvalM m) = EvalM $ \env -> m (f env)
 
 -- Fail the current computation with an error message.
 failure :: String -> EvalM a
-failure s = EvalM $ \_env -> Left s
+failure s = EvalM $ \_env _state -> Left s
 
 
 -- Try the first computation
 -- If the first computation fails, evaluate the second computation instead
 catch :: EvalM a -> EvalM a -> EvalM a
-catch (EvalM m1) (EvalM m2) = EvalM $ \env ->
-  case m1 env of
-    Left _ -> m2 env
+catch (EvalM m1) (EvalM m2) = EvalM $ \env state ->
+  case m1 env state of
+    Left _ -> m2 env state
     Right x -> Right x
 
 ----------------------------- 4. RUNNING AN EVALUATION ----------------
@@ -99,7 +99,10 @@ catch (EvalM m1) (EvalM m2) = EvalM $ \env ->
 -- runEval :: EvalM a -> Either Error a
 -- runEval (EvalM m) = m envEmpty
 runEval :: EvalM a -> ([String], Either Error a)
-runEval (EvalM m) = ([], m envEmpty)
+runEval (EvalM m) =
+  case m envEmpty [] of
+    Left err -> ([], Left err)
+    Right (x, state) -> (state, Right x)
 
 
 
