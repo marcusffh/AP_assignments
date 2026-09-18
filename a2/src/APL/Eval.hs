@@ -158,6 +158,12 @@ eval (KvGet k_exp) = do
   k <- eval k_exp
   evalKvGet k
 
+eval (KvPut k_exp v_exp) = do
+  k <- eval k_exp
+  v <- eval v_exp
+  evalKvPut k v
+  pure v
+
 evalPrint :: String -> EvalM ()
 evalPrint s = EvalM $ \_env (prints, store) -> 
   ((prints ++ [s], store), Right ())
@@ -173,3 +179,7 @@ evalKvGet k = EvalM $ \_env (prints, store) ->
      Just v -> ((prints, store), Right v) -- if the key exists return its associated rule
      Nothing -> ((prints, store), Left ("Invalid key: " ++ show k)) --if not fail with "Invalid key"
 -- don't change state
+
+evalKvPut :: Val -> Val -> EvalM ()
+evalKvPut k v = EvalM  $ \_env (prints, store) ->
+  ((prints, (k, v) : filter ((/=k).fst) store), Right ())
