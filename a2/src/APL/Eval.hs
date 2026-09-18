@@ -28,7 +28,7 @@ envLookup v env = lookup v env
 
 type Error = String
 
-type State = [String]
+type State = ([String], [(Val, Val)])
 
 newtype EvalM a = EvalM (Env -> State -> (State, Either Error a))
 
@@ -153,6 +153,10 @@ eval (Print s e) = do
   evalPrint (s ++ ": " ++ printVal v)
   pure v
 
+eval (KvGet k_exp) = do
+  k <- eval k_exp
+  evalKvGet k
+
 evalPrint :: String -> EvalM ()
 evalPrint s = EvalM $ \_env state ->
   (state ++ [s], Right ())
@@ -161,3 +165,10 @@ printVal :: Val -> String
 printVal (ValInt i) = show i
 printVal (ValBool b) = show b
 printVal (ValFun _ _ _) = "#<fun>"
+
+evalKvGet :: Val -> EvalM Val
+evalKvGet k = EvalM $ \_env (prints, store) ->
+  case lookup k store of -- look through key-value store
+     Just v -> ((prints, store), Right v) -- if the key exists return its associated rule
+     Nothing -> ((prints, store), Left ("Invalid key: " ++ show k)) --if not fail with "Invalid key"
+-- don't change state
