@@ -22,4 +22,6 @@ data Exp
   | Lambda VName Exp
   | Apply Exp Exp
   | TryCatch Exp Exp
+  | KvPut Exp Exp
+  | KvGet Exp
   deriving (Eq, Show)
