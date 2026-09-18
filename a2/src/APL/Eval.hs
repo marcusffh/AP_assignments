@@ -159,8 +159,8 @@ eval (KvGet k_exp) = do
   evalKvGet k
 
 evalPrint :: String -> EvalM ()
-evalPrint s = EvalM $ \_env state ->
-  (state ++ [s], Right ())
+evalPrint s = EvalM $ \_env (prints, store) ->
+  ((prints ++ [s], store), Right ())
 
 printVal :: Val -> String
 printVal (ValInt i) = show i
