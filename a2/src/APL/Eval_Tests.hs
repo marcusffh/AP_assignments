@@ -120,7 +120,12 @@ kvTests =
           (Let "x"
             (KvPut (CstInt 0) (CstBool True))
             (KvGet (CstInt 1))))
-        @?= ([], Left "Invalid key: ValInt 1")
+        @?= ([], Left "Invalid key: ValInt 1"),
+      -- question 3 extra test
+      testCase "TryCatch keeps prints" $
+        eval' (TryCatch (Add (Print "a" (CstInt 1)) (Div (CstInt 1) (CstInt 0)))
+                        (CstInt 2))
+          @?= (["a: 1"], Right (ValInt 2))
     ]
 
 tests :: TestTree
