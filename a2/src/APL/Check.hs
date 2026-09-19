@@ -6,6 +6,30 @@ type Error = String
 
 newtype CheckM a = CheckM ([VName] -> Either Error a)
 
+instance Functor CheckM where
+  fmap f (CheckM m) = CheckM $ \scope ->
+    case m scope of
+      Left err -> Left err
+      Right x  -> Right (f x)
+
+instance Applicative CheckM where
+  pure x = CheckM $ \_scope -> Right x
+  CheckM mf <*> CheckM mx = CheckM $ \scope ->
+    case mf scope of
+      Left err -> Left err
+      Right f ->
+        case mx scope of
+          Left err -> Left err
+          Right x  -> Right (f x)
+
+instance Monad CheckM where
+  CheckM x >>= f = CheckM $ \scope ->
+    case x scope of
+      Left err -> Left err
+      Right x' ->
+        let CheckM y = f x'
+         in y scope
+
 ask :: CheckM [VName]
 ask = CheckM $ \scope -> Right scope
 
