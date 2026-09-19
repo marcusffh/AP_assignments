@@ -23,4 +23,8 @@ tests :: TestTree
 tests =
   testGroup
     "Checking"
-    []
+    [
+    testPos (CstInt 2)
+      , testNeg (Var "x")
+      , testPos (Lambda "x" (Var "x"))
+    ]
