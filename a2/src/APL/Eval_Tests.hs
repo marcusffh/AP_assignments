@@ -103,7 +103,7 @@ kvTests :: TestTree
 kvTests =
   testGroup
     "Task 2: Key-value store"
-    []
+    []7½  
 
 tests :: TestTree
 tests = testGroup "Evaluation" [evalTests, printTests, kvTests]
