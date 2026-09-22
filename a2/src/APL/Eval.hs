@@ -28,7 +28,7 @@ envLookup v env = lookup v env
 
 type Error = String
 
-type State = [String]
+type State = ([String], [(Val, Val)])
 
 newtype EvalM a = EvalM (Env -> State -> (State, Either Error a))
 
@@ -65,7 +65,8 @@ catch (EvalM m1) (EvalM m2) = EvalM $ \env state ->
 
 runEval :: EvalM a -> ([String], Either Error a)
 runEval (EvalM m) = 
-  m envEmpty []
+  let ((prints, _), result) = m envEmpty ([], [])
+  in (prints, result)
 
 evalIntBinOp :: (Integer -> Integer -> EvalM Integer) -> Exp -> Exp -> EvalM Val
 evalIntBinOp f e1 e2 = do
@@ -153,11 +154,32 @@ eval (Print s e) = do
   evalPrint (s ++ ": " ++ printVal v)
   pure v
 
+eval (KvGet k_exp) = do
+  k <- eval k_exp
+  evalKvGet k
+
+eval (KvPut k_exp v_exp) = do
+  k <- eval k_exp
+  v <- eval v_exp
+  evalKvPut k v
+  pure v
+
 evalPrint :: String -> EvalM ()
-evalPrint s = EvalM $ \_env state ->
-  (state ++ [s], Right ())
+evalPrint s = EvalM $ \_env (prints, store) -> 
+  ((prints ++ [s], store), Right ())
 
 printVal :: Val -> String
 printVal (ValInt i) = show i
 printVal (ValBool b) = show b
 printVal (ValFun _ _ _) = "#<fun>"
+
+evalKvGet :: Val -> EvalM Val
+evalKvGet k = EvalM $ \_env (prints, store) ->
+  case lookup k store of -- look through key-value store
+     Just v -> ((prints, store), Right v) -- if the key exists return its associated rule
+     Nothing -> ((prints, store), Left ("Invalid key: " ++ show k)) --if not fail with "Invalid key"
+-- don't change state
+
+evalKvPut :: Val -> Val -> EvalM ()
+evalKvPut k v = EvalM  $ \_env (prints, store) ->
+  ((prints, (k, v) : filter ((/=k).fst) store), Right ())

@@ -103,7 +103,30 @@ kvTests :: TestTree
 kvTests =
   testGroup
     "Task 2: Key-value store"
-    []7½  
+    [
+    testCase "KvGet " $
+      runEval (eval
+        (Let "x"
+          (KvPut (CstInt 0) (CstBool True))
+          (KvGet (CstInt 0))))
+      @?= ([], Right (ValBool True)),
+
+     testCase "KvPut " $
+        runEval (eval (KvPut (CstInt 0) (CstBool True)))
+        @?= ([], Right (ValBool True)),
+
+      testCase "KvGet invalid Key" $
+        runEval (eval
+          (Let "x"
+            (KvPut (CstInt 0) (CstBool True))
+            (KvGet (CstInt 1))))
+        @?= ([], Left "Invalid key: ValInt 1"),
+      -- question 3 extra test
+      testCase "TryCatch keeps prints" $
+        eval' (TryCatch (Add (Print "a" (CstInt 1)) (Div (CstInt 1) (CstInt 0)))
+                        (CstInt 2))
+          @?= (["a: 1"], Right (ValInt 2))
+    ]
 
 tests :: TestTree
 tests = testGroup "Evaluation" [evalTests, printTests, kvTests]
