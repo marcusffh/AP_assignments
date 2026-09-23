@@ -40,7 +40,40 @@ tests =
           parserTest "x-y" $ Sub (Var "x") (Var "y"),
           parserTest "x*y" $ Mul (Var "x") (Var "y"),
           parserTest "x/y" $ Div (Var "x") (Var "y")
-        ],
+        ], ----------- Part 1 
+      testGroup
+        "Part 1, function application"
+        [ parserTest "x y" $ Apply (Var "x") (Var "y"),
+          parserTest "x y z" $ Apply (Apply (Var "x") (Var "y")) (Var "z"),
+          parserTest "x(y z)" $ Apply (Var "x") (Apply (Var "y") (Var "z")),
+          parserTestFail "x if x then y else z",
+          parserTest "x y + z" $ Add (Apply (Var "x") (Var "y")) (Var "z"),
+          parserTest "x + y z" $ Add (Var "x") (Apply (Var "y") (Var "z"))
+        ],-----------Part 1 above
+          -----------Part 2 below
+      testGroup
+        "Part 2, Equality and power"
+        [ parserTest "x==y" $ Eql (Var "x") (Var "y"),
+          parserTest "x==y==z" $ Eql (Eql (Var "x") (Var "y")) (Var "z"),
+          parserTest "x**y" $ Pow (Var "x") (Var "y"),
+          parserTest "x**y**z" $ Pow (Var "x") (Pow (Var "y") (Var "z")),
+          parserTest "x*y**z" $ Mul (Var "x") (Pow (Var "y") (Var "z")),
+          parserTest "x+y==y+x" $ Eql (Add (Var "x") (Var "y")) (Add (Var "y") (Var "x"))
+        ],--------------- Part 2 above
+        ----------------- Part 3 below
+      testGroup
+        "Part 3, print/get/put"
+        [ parserTest "put x y" $
+            KvPut (Var "x") (Var "y"),
+          parserTest "get x" $
+            KvGet (Var "x"),
+          parserTest "get x + y" $
+            Add (KvGet (Var "x")) (Var "y"),
+          parserTest "print \"foo\" x" $
+            Print "foo" (Var "x"),
+          parserTest "getx" $
+            Var "getx"
+        ], ------------ Part 3 above
       testGroup
         "Operator priority"
         [ parserTest "x+y+z" $ Add (Add (Var "x") (Var "y")) (Var "z"),
