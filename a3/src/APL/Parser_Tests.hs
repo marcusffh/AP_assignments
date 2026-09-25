@@ -97,5 +97,21 @@ tests =
         "Lexing edge cases"
         [ parserTest "2 " $ CstInt 2,
           parserTest " 2" $ CstInt 2
+        ],
+      testGroup
+        "Lambdas and let"
+        [ parserTest "let x = y in z" $
+            Let "x" (Var "y") (Var "z"),
+            
+          parserTestFail "let true = y in z",
+          
+          parserTestFail "x let v = 2 in v", 
+          
+          parserTest "\\x -> x + x" $
+            Lambda "x" (Add(Var "x") (Var"x")),
+            
+          parserTest "(\\x -> x) + x" $
+            Add (Lambda "x" (Var "x")) (Var "x")
         ]
+
     ]
