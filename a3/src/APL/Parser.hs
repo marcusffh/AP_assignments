@@ -31,16 +31,16 @@ keywords =
     "else",
     "true",
     "false",
-    "print", -- part 3
-    "put", -- part 3
-    "get", -- part 3
-    "try", -- part 4
-    "catch", -- part 4
-    "let", -- part 4
-    "in", -- part 4
-    "loop", -- part 4
-    "for", -- part 4
-    "do" -- part 4
+    "print", 
+    "put", 
+    "get", 
+    "try", 
+    "catch", 
+    "let", 
+    "in", 
+    "loop", 
+    "for", 
+    "do" 
   ]
 
 lVName :: Parser VName
@@ -59,14 +59,12 @@ lInteger =
 lString :: String -> Parser ()
 lString s = lexeme $ void $ chunk s
 
------ Part 3 below
 pString :: Parser String
 pString =
   lexeme $
     chunk "\"" *>
     many (satisfy (/= '"')) <*
     chunk "\""
---- Part 3 above
 
 lKeyword :: String -> Parser ()
 lKeyword s = lexeme $ void $ try $ chunk s <* notFollowedBy (satisfy isAlphaNum)
@@ -87,7 +85,6 @@ pAtom =
       lString "(" *> pExp <* lString ")"
     ]
 
-------------------------------------- part 1 below
 pFExp :: Parser Exp
 pFExp = pAtom >>= chain
   where
@@ -98,8 +95,6 @@ pFExp = pAtom >>= chain
             chain $ Apply x y,
           pure x
         ]
--------------------------------- part 1 above
----------------------------------Part 3 below
 pLExp :: Parser Exp
 pLExp =
   choice
@@ -142,8 +137,6 @@ pLExp =
 
       pFExp
     ]
------------------ Part 3 above
--------------------------- Part 2 below
 pExp2 :: Parser Exp
 pExp2 = do
   x <- pLExp
@@ -154,7 +147,6 @@ pExp2 = do
         pure $ Pow x y,
       pure x
     ]
------------------------------ Part 2 above
 
 pExp1 :: Parser Exp
 pExp1 = pExp2 >>= chain
@@ -163,11 +155,11 @@ pExp1 = pExp2 >>= chain
       choice
         [ do
             lString "*"
-            y <- pExp2 -------- Part 2
+            y <- pExp2 
             chain $ Mul x y,
           do
             lString "/"
-            y <- pExp2 -------- Part 2
+            y <- pExp2 
             chain $ Div x y,
           pure x
         ]
@@ -188,7 +180,6 @@ pExp0 = pExp1 >>= chain
           pure x
         ]
 
---------------- Part 2 below
 pExp :: Parser Exp
 pExp = pExp0 >>= chain
   where
@@ -200,7 +191,6 @@ pExp = pExp0 >>= chain
             chain $ Eql x y,
           pure x
         ]
----------------- Part 2 above
 
 parseAPL :: FilePath -> String -> Either String Exp
 parseAPL fname s = case parse (space *> pExp <* eof) fname s of
