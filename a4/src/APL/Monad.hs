@@ -73,11 +73,13 @@ data EvalOp a
   = ReadOp (Env -> a)
   | PrintOp String a
   | ErrorOp Error
+  | TryCatchOp (EvalM Val) (EvalM Val) (Val -> a) -- part 1
 
 instance Functor EvalOp where
   fmap f (ReadOp k) = ReadOp $ f . k
   fmap f (PrintOp p m) = PrintOp p $ f m
   fmap _ (ErrorOp e) = ErrorOp e
+  fmap f (TryCatchOp e1 e2 k) =  TryCatchOp e1 e2 (f . k) -- part 1
 
 type EvalM a = Free EvalOp a
 
@@ -96,8 +98,7 @@ localEnv :: (Env -> Env) -> EvalM a -> EvalM a
 localEnv f = modifyEffects g
   where
     g (ReadOp k) = ReadOp $ k . f
-    -- TODO: add cases for TryCatchOp, TransactionOp, and as necessary for the
-    -- effects you add for looping.
+    g (TryCatchOp e1 e2 k) = TryCatchOp (localEnv f e1) (localEnv f e2) k -- part 1
     g op = op
 
 evalPrint :: String -> EvalM ()
@@ -107,7 +108,7 @@ failure :: String -> EvalM a
 failure = Free . ErrorOp
 
 catch :: EvalM Val -> EvalM Val -> EvalM Val
-catch = error "TODO"
+catch e1 e2 = Free $ TryCatchOp e1 e2 pure --part 1
 
 evalKvGet :: Val -> EvalM Val
 evalKvGet = error "TODO"

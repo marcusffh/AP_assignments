@@ -57,6 +57,28 @@ pureTests =
       testCase "Div0" $
         eval' (Div (CstInt 7) (CstInt 0))
           @?= ([], Left "Division by zero")
+          --- part 1 tests below
+                ,
+      testCase "TryCatch: success" $
+        runEval (Free $ TryCatchOp (pure $ ValInt 5) (pure $ ValInt 1) pure)
+          @?= ([], Right (ValInt 5)),
+      --
+      testCase "TryCatch: failure falls back" $
+        runEval (Free $ TryCatchOp (failure "Oh no!") (pure $ ValInt 1) pure)
+          @?= ([], Right (ValInt 1)),
+      --
+      testCase "TryCatch: keeps prints from m1" $
+        runEval (Free $ TryCatchOp (evalPrint "a" >> failure "x") (pure $ ValInt 1) pure)
+          @?= (["a"], Right (ValInt 1)),
+      --
+      testCase "TryCatch: continuation runs after fallback" $
+        runEval (Free $ TryCatchOp (failure "x") (pure $ ValInt 1) (\v -> evalPrint "k" >> pure v))
+          @?= (["k"], Right (ValInt 1)),
+      --
+      testCase "TryCatch via eval" $
+        eval' (TryCatch (CstBool True `Eql` CstInt 0) (CstInt 1))
+          @?= ([], Right (ValInt 1))
+          -- part 1 tests above
     ]
 
 ioTests :: TestTree
@@ -72,6 +94,20 @@ ioTests =
               evalPrint s1
               evalPrint s2
         (out, res) @?= ([s1, s2], Right ())
+        -- part 1 tests below
+              ,
+      testCase "TryCatch IO: failure falls back" $ do
+        res <-
+          runEvalIO $
+            Free $ TryCatchOp (failure "Oh no!") (pure $ ValInt 1) pure
+        res @?= Right (ValInt 1),
+      --
+      testCase "TryCatch IO: success" $ do
+        res <-
+          runEvalIO $
+            Free $ TryCatchOp (pure $ ValInt 5) (pure $ ValInt 1) pure
+        res @?= Right (ValInt 5)
+        -- part 1 tests above
         -- NOTE: This test will give a runtime error unless you replace the
         -- version of `eval` in `APL.Eval` with a complete version that supports
         -- `Print`-expressions. Uncomment at your own risk.
