@@ -21,8 +21,10 @@ data Exp
   | ForLoop (VName, Exp) (VName, Exp) Exp
   | Lambda VName Exp
   | Apply Exp Exp
-  | TryCatch Exp Exp
+  | TryCatch Exp Exp -- part 1
   | Print String Exp
   | KvPut Exp Exp
   | KvGet Exp
+  | Transaction Exp -- part 3
+  | Break Exp -- part 4
   deriving (Eq, Show)
