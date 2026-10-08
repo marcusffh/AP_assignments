@@ -12,17 +12,18 @@ import Text.Megaparsec
     errorBundlePretty,
     many,
     notFollowedBy,
+    optional,
     parse,
     satisfy,
     some,
     try,
   )
-import Text.Megaparsec.Char (space)
+import Text.Megaparsec.Char (char, spaceChar)
 
 type Parser = Parsec Void String
 
 lexeme :: Parser a -> Parser a
-lexeme p = p <* space
+lexeme p = p <* many spaceChar
 
 keywords :: [String]
 keywords =
@@ -47,8 +48,10 @@ lVName = lexeme $ try $ do
     else pure v
 
 lInteger :: Parser Integer
-lInteger =
-  lexeme $ read <$> some (satisfy isDigit) <* notFollowedBy (satisfy isAlphaNum)
+lInteger = lexeme $ try $ do
+  sign <- optional (char '-')
+  digits <- some (satisfy isDigit)
+  pure $ read $ maybe digits (: digits) sign
 
 lString :: String -> Parser ()
 lString s = lexeme $ void $ chunk s
@@ -94,8 +97,8 @@ pLExp =
         <$> (lString "\\" *> lVName)
         <*> (lString "->" *> pExp),
       TryCatch
-        <$> (lKeyword "try" *> pExp)
-        <*> (lKeyword "catch" *> pExp),
+        <$> (lKeyword "try" *> pLExp)
+        <*> (lKeyword "catch" *> pLExp),
       Let
         <$> (lKeyword "let" *> lVName)
         <*> (lString "=" *> pExp)
@@ -163,6 +166,6 @@ pExp :: Parser Exp
 pExp = pExp1
 
 parseAPL :: FilePath -> String -> Either String Exp
-parseAPL fname s = case parse (space *> pExp <* eof) fname s of
+parseAPL fname s = case parse (many spaceChar *> pExp <* eof) fname s of
   Left err -> Left $ errorBundlePretty err
   Right x -> Right x
