@@ -3,7 +3,7 @@ module APL.Tests
   )
 where
 
-import APL.AST (Exp (..), subExp)
+import APL.AST (Exp (..), VName, subExp)
 import APL.Error (isVariableError, isDomainError, isTypeError)
 import APL.Check (checkExp)
 import Test.QuickCheck
@@ -16,10 +16,12 @@ import Test.QuickCheck
   , oneof
   , sized
   , withMaxSuccess
+  , elements
+  , frequency
   )
 
 instance Arbitrary Exp where
-  arbitrary = sized genExp
+  arbitrary = sized (genExp [])
 
   shrink (Add e1 e2) =
     e1 : e2 : [Add e1' e2 | e1' <- shrink e1] ++ [Add e1 e2' | e2' <- shrink e2]
@@ -45,25 +47,49 @@ instance Arbitrary Exp where
     e1 : e2 : [TryCatch e1' e2 | e1' <- shrink e1] ++ [TryCatch e1 e2' | e2' <- shrink e2]
   shrink _ = []
 
-genExp :: Int -> Gen Exp
-genExp 0 = oneof [CstInt <$> arbitrary, CstBool <$> arbitrary]
-genExp size =
-  oneof
-    [ CstInt <$> arbitrary
-    , CstBool <$> arbitrary
-    , Add <$> genExp halfSize <*> genExp halfSize
-    , Sub <$> genExp halfSize <*> genExp halfSize
-    , Mul <$> genExp halfSize <*> genExp halfSize
-    , Div <$> genExp halfSize <*> genExp halfSize
-    , Pow <$> genExp halfSize <*> genExp halfSize
-    , Eql <$> genExp halfSize <*> genExp halfSize
-    , If <$> genExp thirdSize <*> genExp thirdSize <*> genExp thirdSize
-    , Var <$> arbitrary
-    , Let <$> arbitrary <*> genExp halfSize <*> genExp halfSize
-    , Lambda <$> arbitrary <*> genExp (size - 1)
-    , Apply <$> genExp halfSize <*> genExp halfSize 
-    , TryCatch <$> genExp halfSize <*> genExp halfSize
+shortVar :: Gen VName
+shortVar = elements ["ab", "foo", "test"]
+
+
+genExp :: [VName] -> Int -> Gen Exp
+genExp vars 0 = oneof [CstInt <$> arbitrary, CstBool <$> arbitrary]
+genExp vars size =
+  frequency $
+    [ (5, CstInt <$> arbitrary)
+    , (5, CstBool <$> arbitrary)
+    , (5, Add <$> genExp vars halfSize <*> genExp vars halfSize)
+    , (5, Sub <$> genExp vars halfSize <*> genExp vars halfSize)
+    , (5, Mul <$> genExp vars halfSize <*> genExp vars halfSize)
+    , (3, Div <$> genExp vars halfSize <*> genExp vars halfSize)
+    , (3, Pow <$> genExp vars halfSize <*> genExp vars halfSize)
+    , (5, Eql <$> genExp vars halfSize <*> genExp vars halfSize)
+    , (5, If <$> genExp vars thirdSize <*> genExp vars thirdSize <*> genExp vars thirdSize)
+    , (1, pure (Var "abcde"))
+
+    , (1 ,
+        do 
+          v <- shortVar
+          e1 <- genExp vars halfSize
+          e2 <- genExp (v : vars) halfSize
+          pure (Let v e1 e2)
+      )
+    , (1,  
+        do 
+          v <- shortVar
+          e <- genExp (v : vars) (size - 1)
+          pure (Lambda v e)
+      )
+    , (5,  
+        do 
+          v <- shortVar
+          pure (Let v (CstInt 5) (Var v))
+      )
+    , (1, Apply <$> genExp vars halfSize <*> genExp vars halfSize)
+    , (1, TryCatch <$> genExp vars halfSize <*> genExp vars halfSize)
     ]
+    ++ if null vars 
+      then []
+      else [(15, Var <$> elements vars)]
   where
     halfSize = size `div` 2
     thirdSize = size `div` 3
