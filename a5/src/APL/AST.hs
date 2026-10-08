@@ -25,11 +25,34 @@ data Exp
   | TryCatch Exp Exp
   deriving (Eq, Show)
 
+printApplyLeft :: Exp -> String
+printApplyLeft e =
+  case e of
+    CstInt _  -> printExp e
+    CstBool _ -> printExp e
+    Var _     -> printExp e
+    Apply _ _ -> printExp e
+    _         -> parens (printExp e)
+
+printApplyRight :: Exp -> String
+printApplyRight e =
+  case e of
+    CstInt _  -> printExp e
+    CstBool _ -> printExp e
+    Var _     -> printExp e
+    _         -> parens (printExp e)
+
 parens :: String -> String
 parens x = "(" ++ x ++ ")"
 
 printBinOp :: String -> Exp -> Exp -> String
-printBinOp op x y = parens $ printExp x ++ " " ++ op ++ " " ++ printExp y
+printBinOp op x y =
+  parens $ printExp x ++ " " ++ op ++ " " ++ printOperand y
+  where
+    printOperand (CstInt n)
+      | n < 0 = parens (printExp (CstInt n))
+      | otherwise = printExp (CstInt n)
+    printOperand e = printExp e
 
 printExp :: Exp -> String
 printExp (CstInt x) = show x
@@ -60,7 +83,12 @@ printExp (Let v e1 e2) =
 printExp (Lambda v body) =
   parens $ "\\" ++ v ++ " -> " ++ printExp body
 printExp (Apply x y) =
-  printExp x ++ " " ++ printExp y
+  printApplyLeft x ++ " " ++ printApplyRight y
+
+
+
+
+
 printExp (TryCatch x y) =
   "try " ++ printExp x ++ " catch " ++ printExp y
 
