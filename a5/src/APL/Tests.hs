@@ -111,11 +111,25 @@ parsePrinted :: Exp -> Bool
 parsePrinted e =
   parseAPL "" (printExp e) == Right e
 
-onlyCheckedErrors :: Exp -> Bool
+onlyCheckedErrors :: Exp -> Bool-- function takes an expression and returns a bool
 onlyCheckedErrors e =
   case runEval (eval e) of
-    Left err -> err `elem` checkExp e
-    Right _ -> True
+    Left err -> err `elem` checkExp e --failed evaluation
+    Right _ -> True -- succesful evaluation
+-- The function. in the case of an error, checks if the true evaluated error, are present in the checked(predicted) errors, if so it returns True
+
+
+-- temp helper
+testCounterexample :: Bool
+testCounterexample =
+  onlyCheckedErrors
+    (Apply
+      (TryCatch
+        (Lambda "x" (Div (CstInt 1) (CstInt 0)))
+        (Lambda "x" (CstInt 1)))
+      (CstInt 0))
+
+
 
 -- The number of tests is part of the specification of this test suite: some of
 -- these properties fail only rarely.  Do not reduce it.
