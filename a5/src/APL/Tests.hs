@@ -119,7 +119,7 @@ onlyCheckedErrors e =
 -- The function. in the case of an error, checks if the true evaluated error, are present in the checked(predicted) errors, if so it returns True
 
 
--- temp helper
+--- counter example for task 3, question 4
 testCounterexample :: Bool
 testCounterexample =
   onlyCheckedErrors
