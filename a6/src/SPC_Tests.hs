@@ -12,6 +12,7 @@ tests :: TestTree
 tests =
   localOption (mkTimeout 3000000) $
     testGroup "SPC (core)"
+      -- Can a worker be added, execute a job and report that it finished successfully
       [ testCase "worker executes a job" $ do
           spc <- startSPC
           workerResult <- workerAdd spc "worker1"
@@ -22,7 +23,7 @@ tests =
               result <- jobWait spc jobId
               result @?= Just Done
 
-        
+        -- Two workers can execute two jobs and that both jobs finish successfully
       , testCase "two workers execute jobs concurrently" $ do
           spc <- startSPC
           firstWorker <- workerAdd spc "worker1"
@@ -52,7 +53,7 @@ tests =
             (_, Left err) -> assertFailure err
 
 
-        
+        -- SPC refuses to register two workers with the same name
       , testCase "duplicate worker name is rejected" $ do
           spc <- startSPC
           first <- workerAdd spc "worker1"
@@ -66,7 +67,7 @@ tests =
                 Right _ -> assertFailure "Duplicate worker name was accepted"
 
 
-      
+      -- A job waiting in the pending queue can be cancelled without being executed
       , testCase "pending job can be cancelled" $ do
           spc <- startSPC
           workerResult <- workerAdd spc "worker1"
@@ -92,7 +93,7 @@ tests =
               result @?= Just DoneCancelled
 
 
-      
+      -- A single worker can execute one job, finish it, and then execute another job
       , testCase "worker executes multiple jobs sequentially" $ do
           spc <- startSPC
           workerResult <- workerAdd spc "worker1"
