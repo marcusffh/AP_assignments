@@ -94,7 +94,8 @@ type WorkerName = String
 data WorkerMsg --which instructions does a worker understand
   = MsgDoJob JobId (IO ()) -- execute a particular job
   | MsgStopWorker -- tells a worker to stop.
-
+  | MsgCancelJob JobId -- task2:tells a worker which job SPC wants to cancel
+  | MsgJobFinished JobId --Task2: Internal notification that a job finished normally
 -- Messages sent to SPC.
 data SPCMsg -- messages sent to SPC manager
   = -- | Add the job, and reply with the job ID.
@@ -110,6 +111,7 @@ data SPCMsg -- messages sent to SPC manager
   | MsgWorkerDone WorkerName --Task1
   | MsgWorkerAdd WorkerName (ReplyChan (Either String Worker)) -- Task1
   | MsgWorkerGone WorkerName -- Task1
+  | MsgWorkerCancelled WorkerName JobId --Task2: Which worker cancelled which job
 
 -- | A handle to the SPC instance.
 data SPC = SPC (Server SPCMsg)
@@ -372,32 +374,97 @@ handleMsg c = do
     -- Task1 above
 
 
-    --Task1 below
+    --Task1+2 below
     MsgJobCancel jobId -> do -- handle a request to cancel a job
       state <- get
       case lookup jobId (spcJobsPending state) of
         Just _ -> do
+          -- cancel a job that has not started
           modify $ \s ->
             s { spcJobsPending = removeAssoc jobId (spcJobsPending s) }
           modify $ \s ->
             s { spcJobsDone = (jobId, DoneCancelled) : spcJobsDone s }
           notifyJobWaiters jobId DoneCancelled
+        Nothing ->
+          case lookup jobId (spcJobsRunning state) of
+            Just _ ->
+              -- find the worker executing this job
+              case
+              [ (workerName, workerServer)
+              | (workerName, Worker workerServer, Just runningId) <- spcWorkers state
+              , runningId == jobId
+              ] of
+              (workerName, workerServer) : _ ->
+                io $ sendTo workerServer (MsgCancelJob jobId)
+              [] -> pure ()
+        
         Nothing -> pure ()
-    --task1 above
+    --task1+2 above
+    
+    -- task2 below
+    MsgWorkerCancelled name jobId -> do 
+      state <- get
+      case lookupWorker name (spcWorkers state) of 
+        Just (worker, Just currentJobId)
+          | currentJobId == jobId -> do 
+            jobDone jobId DoneCancelled 
+            workerIsIdle name worker
+        _ -> pure ()
+    -- task2 above
 
--- Task1 below : keep a worker alive so it ca execute multiple jobs
+-- -- Task1 below : keep a worker alive so it ca execute multiple jobs
+-- workerLoop :: Chan SPCMsg -> WorkerName -> Chan WorkerMsg -> IO ()
+-- workerLoop spcChan name workerChan = loop do 
+--   msg <- receive workerChan
+--   case msg of
+--     MsgDoJob jobId action -> do 
+--       action
+--       send spcChan (MsgWorkerDone name)
+--       workerLoop spcChan name workerChan
+--     MsgStopWorker -> do 
+--       send spcChan (MsgWorkerDone name)
+-- -- Task1 above
+
+-- Task2 below: updated loop where a worker can listen for messages while a job runs in another thread
 workerLoop :: Chan SPCMsg -> WorkerName -> Chan WorkerMsg -> IO ()
-workerLoop spcChan name workerChan = do 
-  msg <- receive workerChan
-  case msg of
-    MsgDoJob jobId action -> do 
-      action
-      send spcChan (MsgWorkerDone name)
-      workerLoop spcChan name workerChan
-    MsgStopWorker -> do 
-      send spcChan (MsgWorkerDone name)
--- Task1 above
+workerLoop spcChan name workerChan = loop Nothing
+  where
+    loop :: Maybe (JobId, ThreadId) -> IO ()
+    loop currentJob = do
+      msg <- receive workerChan
+      case msg of
+        MsgDoJob jobId action ->
+          case currentJob of
+            Just _ -> loop currentJob
+            Nothing -> do
+              tid <- forkIO $ do
+                action
+                send workerChan (MsgJobFinished jobId)
+              loop (Just (jobId, tid))
 
+        MsgJobFinished finishedId ->
+          case currentJob of
+            Just (jobId, _)
+              | jobId == finishedId -> do
+                  send spcChan (MsgWorkerDone name)
+                  loop Nothing
+            _ -> loop currentJob
+
+        MsgCancelJob cancelId ->
+          case currentJob of
+            Just (jobId, tid)
+              | jobId == cancelId -> do
+                  killThread tid
+                  send spcChan (MsgWorkerCancelled name jobId)
+                  loop Nothing
+            _ -> loop currentJob
+
+        MsgStopWorker -> do
+          case currentJob of
+            Just (_, tid) -> killThread tid
+            Nothing -> pure ()
+          send spcChan (MsgWorkerGone name)
+-- Task2 above
 
 startSPC :: IO SPC
 startSPC = do
