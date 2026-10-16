@@ -116,6 +116,25 @@ tests =
               readIORef ref >>= (@?= 2)
 
 
+        
+      , testCase "pending job runs when a worker is added later" $ do
+          spc <- startSPC
+
+          jobId <- jobAdd spc (Job (pure ()) 10)
+
+          status <- jobStatus spc jobId
+          status @?= Just JobPending
+
+          workerResult <- workerAdd spc "worker1"
+
+          case workerResult of
+            Left err -> assertFailure err
+            Right _ -> do
+              result <- jobWait spc jobId
+              result @?= Just Done
+
+
+
 
       ]
 
