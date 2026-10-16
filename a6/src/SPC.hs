@@ -27,7 +27,7 @@ import Control.Concurrent
     myThreadId,
     threadDelay,
   )
-import Control.Monad (ap, forever, liftM, void)
+import Control.Monad (ap, forever, forM_, liftM, void)
 import GenServer
 import System.Clock.Seconds (Clock (Monotonic), Seconds, getTime)
 
@@ -96,6 +96,7 @@ data WorkerMsg --which instructions does a worker understand
   | MsgStopWorker -- tells a worker to stop.
   | MsgCancelJob JobId -- task2:tells a worker which job SPC wants to cancel
   | MsgJobFinished JobId --Task2: Internal notification that a job finished normally
+  | MsgTimeoutJob JobId -- task 3 tells a worker to terminate the specified job
 -- Messages sent to SPC.
 data SPCMsg -- messages sent to SPC manager
   = -- | Add the job, and reply with the job ID.
@@ -112,6 +113,7 @@ data SPCMsg -- messages sent to SPC manager
   | MsgWorkerAdd WorkerName (ReplyChan (Either String Worker)) -- Task1
   | MsgWorkerGone WorkerName -- Task1
   | MsgWorkerCancelled WorkerName JobId --Task2: Which worker cancelled which job
+  | MsgWorkerTimedOut WorkerName JobId -- task 3 tells SPC that the worker has handled the timeout
 
 -- | A handle to the SPC instance.
 data SPC = SPC (Server SPCMsg)
@@ -126,7 +128,8 @@ data SPCState = SPCState -- remember what the manager needs to know
     spcJobsDone :: [(JobId, JobDoneReason)],
     spcJobCounter :: JobId,
     spcWorkers :: [(WorkerName, Worker, Maybe JobId)], --Task1: workers and if they are idle or busy
-    spcJobWaiters :: [(JobId, [ReplyChan (Maybe JobDoneReason)])] -- Task1: callers waiting for a job to finish
+    spcJobWaiters :: [(JobId, [ReplyChan (Maybe JobDoneReason)])], -- Task1: callers waiting for a job to finish
+    spcJobStartTimes :: [(JobId, Seconds)] -- task 3
   }
 
 -- | The monad in which the main SPC thread runs. This is a state
@@ -175,21 +178,24 @@ schedule :: SPCM () --assign pending jobs to idle workers
 schedule = do 
   state <- get
   case (spcJobsPending state, findIdleWorker (spcWorkers state)) of
-    ((jobId, job) : pendingJobs, Just (workerName, Worker workerServer, _)) -> do
+    ((jobId, job) : pendingJobs, Just (workerName, Worker workerServer, _)) -> do -- task 3 below
+      startedAt <- io getSeconds
       io $ sendTo workerServer (MsgDoJob jobId (jobAction job))
       modify $ \s ->
         s
           { spcJobsPending = pendingJobs,
             spcJobsRunning = (jobId, job) : spcJobsRunning s,
+            spcJobStartTimes =
+              (jobId, startedAt) : spcJobStartTimes s,
             spcWorkers =
               map
                 (\(name, worker, currentJob) ->
-                   if name == workerName
-                     then (name, worker, Just jobId)
-                     else (name, worker, currentJob))
+                  if name == workerName
+                    then (name, worker, Just jobId)
+                    else (name, worker, currentJob))
                 (spcWorkers s)
           }
-      schedule
+      schedule -- task 3 above
     _ -> pure ()
 
 findIdleWorker
@@ -213,7 +219,9 @@ jobDone jobId reason = do
         s
           { spcJobsRunning = removeAssoc jobId (spcJobsRunning s),
             spcJobsDone = (jobId, reason) : spcJobsDone s,
-            spcJobWaiters = removeAssoc jobId (spcJobWaiters s)
+            spcJobWaiters = removeAssoc jobId (spcJobWaiters s),
+            spcJobStartTimes = removeAssoc jobId (spcJobStartTimes s) -- task 3
+
           }
 -- Task1 above
 -- Task1 below
@@ -252,8 +260,27 @@ workerIsGone name = do
           }
 -- task1 above
 
-checkTimeouts :: SPCM ()
-checkTimeouts = pure () -- change in Task 4
+checkTimeouts :: SPCM () -- task 3 below
+checkTimeouts = do
+  state <- get
+  now <- io getSeconds
+
+  let expiredJobs =
+        [ jobId
+        | (jobId, job) <- spcJobsRunning state,
+          Just startedAt <- [lookup jobId (spcJobStartTimes state)],
+          now - startedAt >= fromIntegral (jobMaxSeconds job)
+        ]
+
+  forM_ expiredJobs $ \jobId ->
+    case
+      [ workerServer
+      | (_, Worker workerServer, Just runningId) <- spcWorkers state,
+        runningId == jobId
+      ] of
+      workerServer : _ ->
+        io $ sendTo workerServer (MsgTimeoutJob jobId)
+      [] -> pure () -- task 3 above
 
 workerExists :: WorkerName -> SPCM Bool -- check whether a worker name is already registered
 workerExists name = do 
@@ -305,6 +332,8 @@ handleMsg c = do
   schedule
   msg <- io $ receive c
   case msg of
+    MsgTick -> pure () --task 3
+
     MsgJobAdd job rsvp -> do
       state <- get
       let JobId jobid = spcJobCounter state
@@ -315,6 +344,7 @@ handleMsg c = do
             spcJobCounter = JobId $ succ jobid
           }
       io $ reply rsvp $ JobId jobid
+
     MsgJobStatus jobid rsvp -> do
       state <- get
       io $ reply rsvp $ case ( lookup jobid $ spcJobsPending state,
@@ -374,32 +404,33 @@ handleMsg c = do
     -- Task1 above
 
 
-    --Task1+2 below
-    MsgJobCancel jobId -> do -- handle a request to cancel a job
+    --Task1+2 (3)below
+    MsgJobCancel jobId -> do
       state <- get
       case lookup jobId (spcJobsPending state) of
         Just _ -> do
-          -- cancel a job that has not started
+          -- A pending job can be cancelled immediately.
           modify $ \s ->
-            s { spcJobsPending = removeAssoc jobId (spcJobsPending s) }
-          modify $ \s ->
-            s { spcJobsDone = (jobId, DoneCancelled) : spcJobsDone s }
+            s
+              { spcJobsPending = removeAssoc jobId (spcJobsPending s),
+                spcJobsDone = (jobId, DoneCancelled) : spcJobsDone s
+              }
           notifyJobWaiters jobId DoneCancelled
+
         Nothing ->
           case lookup jobId (spcJobsRunning state) of
             Just _ ->
-              -- find the worker executing this job
               case
-              [ (workerName, workerServer)
-              | (workerName, Worker workerServer, Just runningId) <- spcWorkers state
-              , runningId == jobId
-              ] of
-              (workerName, workerServer) : _ ->
-                io $ sendTo workerServer (MsgCancelJob jobId)
-              [] -> pure ()
-        
-        Nothing -> pure ()
-    --task1+2 above
+                  [ workerServer
+                  | (_, Worker workerServer, Just runningId) <- spcWorkers state,
+                    runningId == jobId
+                  ] of
+                workerServer : _ ->
+                  io $ sendTo workerServer (MsgCancelJob jobId)
+                [] -> pure ()
+
+            Nothing -> pure ()
+    --task1+2 (3) above
     
     -- task2 below
     MsgWorkerCancelled name jobId -> do 
@@ -411,6 +442,17 @@ handleMsg c = do
             workerIsIdle name worker
         _ -> pure ()
     -- task2 above
+
+    -- task 3 below
+    MsgWorkerTimedOut name jobId -> do
+      state <- get
+      case lookupWorker name (spcWorkers state) of
+        Just (worker, Just currentJobId)
+          | currentJobId == jobId -> do
+              jobDone jobId DoneTimeout
+              workerIsIdle name worker
+        _ -> pure ()
+    -- task 3 above
 
 -- -- Task1 below : keep a worker alive so it ca execute multiple jobs
 -- workerLoop :: Chan SPCMsg -> WorkerName -> Chan WorkerMsg -> IO ()
@@ -450,6 +492,16 @@ workerLoop spcChan name workerChan = loop Nothing
                   loop Nothing
             _ -> loop currentJob
 
+        -- task 3 below
+        MsgTimeoutJob timeoutId ->
+          case currentJob of
+            Just (jobId, tid)
+              | jobId == timeoutId -> do
+                  killThread tid
+                  send spcChan (MsgWorkerTimedOut name jobId)
+                  loop Nothing
+            _ -> loop currentJob
+        -- task 3 above
         MsgCancelJob cancelId ->
           case currentJob of
             Just (jobId, tid)
@@ -475,7 +527,8 @@ startSPC = do
             spcJobsRunning = [],
             spcJobsDone = [],
             spcWorkers = [], -- Task1
-            spcJobWaiters = [] -- Task1
+            spcJobWaiters = [], -- Task1
+            spcJobStartTimes = [] -- task 3
           }
   c <- spawn $ \c -> runSPCM initial_state $ forever $ handleMsg c
   void $ spawn $ timer c

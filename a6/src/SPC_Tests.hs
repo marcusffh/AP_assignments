@@ -162,5 +162,22 @@ tests =
               nextJob <- jobAdd spc (Job (pure ()) 10)
               nextResult <- jobWait spc nextJob
               nextResult @?= Just Done
+    
+      , testCase "timed-out job is terminated and worker is reused" $ do
+          spc <- startSPC
+          workerResult <- workerAdd spc "timeout-worker"
+
+          case workerResult of
+            Left err -> assertFailure err
+            Right _ -> do
+              timedJob <- jobAdd spc (Job (threadDelay 5000000) 1)
+
+              result <- jobWait spc timedJob
+              result @?= Just DoneTimeout
+
+              nextJob <- jobAdd spc (Job (pure ()) 10)
+              nextResult <- jobWait spc nextJob
+              nextResult @?= Just Done
+
       ]
 
