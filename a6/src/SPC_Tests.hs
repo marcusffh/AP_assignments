@@ -11,8 +11,7 @@ import Test.Tasty.HUnit (assertFailure, testCase, (@?=))
 tests :: TestTree
 tests =
   localOption (mkTimeout 3000000) $
-    testGroup "SPC (core)"
-      -- Can a worker be added, execute a job and report that it finished successfully
+    testGroup "SPC (core)" $
       [ testCase "worker executes a job" $ do
           spc <- startSPC
           workerResult <- workerAdd spc "worker1"
@@ -116,7 +115,7 @@ tests =
               readIORef ref >>= (@?= 2)
 
 
-        
+        -- test for task1
       , testCase "pending job runs when a worker is added later" $ do
           spc <- startSPC
 
@@ -133,8 +132,35 @@ tests =
               result <- jobWait spc jobId
               result @?= Just Done
 
+      -- test for for task2
+      , testCase "running job can be canelled and worker reused" $ do 
+          spc <- startSPC
+          workerResult <- workerAdd spc "worker1"
 
+          case workerResult of
+            Left err -> assertFailure err
+            Right _ -> do
+              runningJob <- jobAdd spc (Job (threadDelay 5000000) 10)
 
+              -- Wait until the job has actually started.
+              let waitUntilRunning 0 =
+                    assertFailure "Job never started"
+                  waitUntilRunning n = do
+                    status <- jobStatus spc runningJob
+                    case status of
+                      Just JobRunning -> pure ()
+                      _ -> threadDelay 10000 >> waitUntilRunning (n - 1)
 
+              waitUntilRunning (50 :: Int)
+
+              -- Cancel the running job.
+              jobCancel spc runningJob
+              result <- jobWait spc runningJob
+              result @?= Just DoneCancelled
+
+              -- The same worker should now be able to run another job.
+              nextJob <- jobAdd spc (Job (pure ()) 10)
+              nextResult <- jobWait spc nextJob
+              nextResult @?= Just Done
       ]
 
