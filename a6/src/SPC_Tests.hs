@@ -1,5 +1,6 @@
 module SPC_Tests (tests) where
 
+import Control.Exception (throwIO)
 import Control.Concurrent (threadDelay)
 import Control.Monad (forM, forM_, replicateM)
 import Data.IORef
@@ -179,5 +180,29 @@ tests =
               nextResult <- jobWait spc nextJob
               nextResult @?= Just Done
 
-      ]
 
+
+
+      , testCase "crashed job is recorded and worker is reused" $ do
+          spc <- startSPC
+          workerResult <- workerAdd spc "crash-worker"
+
+          case workerResult of
+            Left err -> assertFailure err
+            Right _ -> do
+              crashedJob <-
+                jobAdd spc (Job (throwIO (userError "job crashed")) 10)
+
+              result <- jobWait spc crashedJob
+              result @?= Just DoneCrashed
+
+              nextJob <- jobAdd spc (Job (pure ()) 10)
+              nextResult <- jobWait spc nextJob
+              nextResult @?= Just Done
+
+      
+    
+
+        
+
+      ]
