@@ -19,7 +19,13 @@ module SPC
     workerStop,
   )
 where
-
+import Control.Exception 
+  ( AsyncException,
+    SomeException,
+    fromException,
+    throwIO,
+    try,
+  )
 import Control.Concurrent
   ( ThreadId,
     forkIO,
@@ -97,6 +103,7 @@ data WorkerMsg --which instructions does a worker understand
   | MsgCancelJob JobId -- task2:tells a worker which job SPC wants to cancel
   | MsgJobFinished JobId --Task2: Internal notification that a job finished normally
   | MsgTimeoutJob JobId -- task 3 tells a worker to terminate the specified job
+  | MsgJobCrashed JobId -- task 4. Job execution thread can tell the worker loop that job crashed
 -- Messages sent to SPC.
 data SPCMsg -- messages sent to SPC manager
   = -- | Add the job, and reply with the job ID.
@@ -114,7 +121,7 @@ data SPCMsg -- messages sent to SPC manager
   | MsgWorkerGone WorkerName -- Task1
   | MsgWorkerCancelled WorkerName JobId --Task2: Which worker cancelled which job
   | MsgWorkerTimedOut WorkerName JobId -- task 3 tells SPC that the worker has handled the timeout
-
+  | MsgWorkerCrashed WorkerName JobId --task4. The worker can notify SPC which worker and job were involved
 -- | A handle to the SPC instance.
 data SPC = SPC (Server SPCMsg)
 
@@ -442,6 +449,17 @@ handleMsg c = do
             workerIsIdle name worker
         _ -> pure ()
     -- task2 above
+    
+    -- task4 below
+    MsgWorkerCrashed name jobId -> do
+      state <- get
+      case lookupWorker name (spcWorkers state) of
+        Just (worker, Just currentJobId)
+          | currentJobId == jobId -> do
+              jobDone jobId DoneCrashed
+              workerIsIdle name worker
+        _ -> pure ()
+    -- task 4 above
 
     -- task 3 below
     MsgWorkerTimedOut name jobId -> do
@@ -480,10 +498,21 @@ workerLoop spcChan name workerChan = loop Nothing
             Just _ -> loop currentJob
             Nothing -> do
               tid <- forkIO $ do
-                action
-                send workerChan (MsgJobFinished jobId)
-              loop (Just (jobId, tid))
+                result <- (try action :: IO (Either SomeException ()))
 
+                case result of
+                  Right () ->
+                    send workerChan (MsgJobFinished jobId)
+
+                  Left exception ->
+                    case fromException exception :: Maybe AsyncException of
+                      Just asyncException ->
+                        throwIO asyncException
+
+                      Nothing ->
+                        send workerChan (MsgJobCrashed jobId)
+              loop (Just (jobId, tid))
+        
         MsgJobFinished finishedId ->
           case currentJob of
             Just (jobId, _)
@@ -491,6 +520,16 @@ workerLoop spcChan name workerChan = loop Nothing
                   send spcChan (MsgWorkerDone name)
                   loop Nothing
             _ -> loop currentJob
+                
+        MsgJobCrashed crashedId ->
+          case currentJob of
+            Just (jobId, _)
+              | jobId == crashedId -> do
+                  send spcChan (MsgWorkerCrashed name jobId)
+                  loop Nothing
+            _ -> loop currentJob
+
+
 
         -- task 3 below
         MsgTimeoutJob timeoutId ->
