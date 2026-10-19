@@ -182,7 +182,7 @@ tests =
 
 
 
-
+        -- Test for Task 4
       , testCase "crashed job is recorded and worker is reused" $ do
           spc <- startSPC
           workerResult <- workerAdd spc "crash-worker"
