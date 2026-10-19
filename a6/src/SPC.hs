@@ -472,19 +472,6 @@ handleMsg c = do
         _ -> pure ()
     -- task 3 above
 
--- -- Task1 below : keep a worker alive so it ca execute multiple jobs
--- workerLoop :: Chan SPCMsg -> WorkerName -> Chan WorkerMsg -> IO ()
--- workerLoop spcChan name workerChan = loop do 
---   msg <- receive workerChan
---   case msg of
---     MsgDoJob jobId action -> do 
---       action
---       send spcChan (MsgWorkerDone name)
---       workerLoop spcChan name workerChan
---     MsgStopWorker -> do 
---       send spcChan (MsgWorkerDone name)
--- -- Task1 above
-
 -- Task2 below: updated loop where a worker can listen for messages while a job runs in another thread
 workerLoop :: Chan SPCMsg -> WorkerName -> Chan WorkerMsg -> IO ()
 workerLoop spcChan name workerChan = loop Nothing
